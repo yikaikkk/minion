@@ -942,13 +942,6 @@ Please fix the error and try again."""
         tools = _deduplicate_tools(self.brain.tools + self.input.tools)
 
         for iteration in range(self.max_iterations):
-            # Emit step start event
-            yield StreamChunk(
-                content=f"Step {iteration + 1}/{self.max_iterations}",
-                chunk_type="step_start",
-                metadata={"iteration": iteration, "max_iterations": self.max_iterations}
-            )
-
             # Construct messages for this iteration
             messages = self.construct_messages_with_history(query, tools, self.task, error, previous_turns_history)
 
