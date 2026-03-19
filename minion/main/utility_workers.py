@@ -74,7 +74,7 @@ class ModeratorMinion(Minion):
         self.save_execution_state()
 
     async def invoke_minion(self, minion_name, worker_config=None):
-        self.input.run_id = uuid.uuid4()  # a new run id for each run
+        self.input.run_id = str(uuid.uuid4())  # a new run id for each run
         self.input.route = minion_name
         worker = RouteMinion(input=self.input, brain=self.brain, worker_config=worker_config, selected_llm=self.selected_llm)
         agent_response = await worker.execute()

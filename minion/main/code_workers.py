@@ -105,7 +105,7 @@ Previous error:
 
             self.answer_code = self.input.answer_code = code
 
-            self.input.run_id = self.input.run_id or uuid.uuid4()
+            self.input.run_id = self.input.run_id or str(uuid.uuid4())
 
             # Check if python_env has step or __call__ method
             if hasattr(self.python_env, 'step'):

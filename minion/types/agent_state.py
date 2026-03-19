@@ -100,3 +100,33 @@ class CodeAgentState(AgentState):
         return output, logs, is_final_answer
 
 
+class AssistantAgentState(AgentState):
+    """
+    Extended state for AssistantAgent with direct thinking specific fields.
+    """
+    
+    # Tool and skill usage tracking
+    tool_usage: Dict[str, int] = Field(default_factory=dict, description="Tool usage counts")
+    skill_usage: Dict[str, int] = Field(default_factory=dict, description="Skill usage counts")
+    
+    # Reflection state
+    reflection_count: int = Field(default=0, description="Number of reflections performed")
+    last_reflection_step: int = Field(default=0, description="Step number of last reflection")
+    
+    def reset(self) -> None:
+        """Reset including assistant-specific fields."""
+        super().reset()
+        self.tool_usage = {}
+        self.skill_usage = {}
+        self.reflection_count = 0
+        self.last_reflection_step = 0
+    
+    def record_tool_usage(self, tool_name: str) -> None:
+        """Record tool usage."""
+        self.tool_usage[tool_name] = self.tool_usage.get(tool_name, 0) + 1
+    
+    def record_skill_usage(self, skill_name: str) -> None:
+        """Record skill usage."""
+        self.skill_usage[skill_name] = self.skill_usage.get(skill_name, 0) + 1
+
+

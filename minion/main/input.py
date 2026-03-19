@@ -38,7 +38,7 @@ class QuestionType(Enum):
 class Task(BaseModel):
     route: Optional[str] = ""  # a tempory solution for routing
     num_trials: int = 1  # how much times downstream node runs
-    ensemble_strategy: str = EnsembleStrategyType.EARLY_STOP
+    ensemble_strategy: str = EnsembleStrategyType.EARLY_STOP.value
     output: Any = None
     parent: Any = None
     # input : 'Input' = None
@@ -128,7 +128,7 @@ class Input(BaseModel):
     info: dict = {}  # Additional information
     route: Optional[str] = ""  # Routing information
     num_trials: int = 1  # Number of execution trials
-    ensemble_strategy: str = EnsembleStrategyType.EARLY_STOP  # Strategy for ensemble processing
+    ensemble_strategy: str = EnsembleStrategyType.EARLY_STOP.value  # Strategy for ensemble processing
 
     # Execution state tracking
     execution_state: ExecutionState = Field(default_factory=ExecutionState)  # Current execution state

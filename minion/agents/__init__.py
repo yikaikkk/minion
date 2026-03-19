@@ -6,5 +6,6 @@ Agent模块
 from minion.agents.base_agent import BaseAgent
 from minion.agents.code_agent import CodeAgent
 from minion.agents.tool_calling_agent import ToolCallingAgent
+from minion.agents.assistant_agent import AssistantAgent
 
-__all__ = ["BaseAgent", "CodeAgent", "ToolCallingAgent"]
+__all__ = ["BaseAgent", "CodeAgent", "ToolCallingAgent", "AssistantAgent"]
