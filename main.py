@@ -8,123 +8,73 @@ using direct thinking and various tools and skills.
 """
 
 import asyncio
+from os import name
 from minion.agents.assistant_agent import AssistantAgent
 from minion.tools.default_tools import FinalAnswerTool
 from minion.tools.think_tool import ThinkTool
 from minion.tools.web_search_tool import WebSearchTool
 from minion.tools.file_tools import FileWriteTool, FileReadTool
+from minion.tools.skill_tool import SkillTool
+from minion.tools.UnrestrictedBashTool import UnrestrictedBashTool
+
+# 添加一个prompt，让ai每次都有限考虑使用skills
+gernal_prompt="""【强制执行要求】：请务必优先检索并调用你的技能（Skills/Tools）来解决上述问题。严禁仅凭内在记忆直接猜测或编造答案。只有在确认没有任何技能适用时，才允许基于自身知识作答。 【问题】:"""
 
 
-async def example_basic_usage():
-    """Basic usage of AssistantAgent"""
-    print("=== Basic AssistantAgent Usage ===")
 
-    # Create AssistantAgent with basic tools
-    agent = AssistantAgent(
-        name="assistant_demo",
-        enable_reflection=True,
-        enable_state_tracking=True
+    
+agent = None
+
+async def init_assistant_agent():
+    """初始化 assistant agent"""
+    global agent
+    agent=await AssistantAgent.create(
+        name="assistant_agent",
+        tools=[SkillTool(),UnrestrictedBashTool(),FinalAnswerTool()],
     )
-    await agent.setup()
-    # Add tools
-    agent.add_tool(ThinkTool())
-    agent.add_tool(WebSearchTool())
-    agent.add_tool(FileWriteTool())
-    agent.add_tool(FileReadTool())
-
-    # Run a simple task
-    task = "What is the capital of France?"
-    result = await agent.run(task)
-    print(f"Task: {task}")
-    print(f"Result: {result}")
-    print()
+    
 
 
-async def example_complex_task():
-    """Complex task demonstration"""
-    print("=== Complex Task Example ===")
 
-    # Create AssistantAgent
-    agent = AssistantAgent(
-        name="assistant_complex",
-        enable_reflection=True,
-        enable_state_tracking=True
-    )
-    await agent.setup()
-    # Add tools
-    agent.add_tool(ThinkTool())
-    agent.add_tool(WebSearchTool())
-    agent.add_tool(FileWriteTool())
-    agent.add_tool(FileReadTool())
-
-    # Run a more complex task
-    task = "Research the current population of Paris, France, and write it to a file called 'paris_population.txt'."
-    result = await agent.run(task)
-    print(f"Task: {task}")
-    print(f"Result: {result}")
-    print()
-
-
-async def example_with_skills():
-    """Example using skills"""
-    print("=== Skills Example ===")
-
-    # Create AssistantAgent
-    agent = AssistantAgent(
-        name="assistant_skills",
-        enable_reflection=True,
-        enable_state_tracking=True
-    )
-    await agent.setup()
-    # Add tools (including SkillTool if available)
-    agent.add_tool(ThinkTool())
-
-    # Run a task that might benefit from skills
-    task = "Analyze the sentiment of the following text: 'I love this product! It's amazing and works perfectly.'"
-    result = await agent.run(task)
-    print(f"Task: {task}")
-    print(f"Result: {result}")
-    print()
-
-
-async def example_state_management():
-    """Example of state management"""
-    print("=== State Management Example ===")
-
-    # Create AssistantAgent with state tracking enabled
-    agent = AssistantAgent(
-        name="assistant_state",
-        enable_reflection=True,
-        enable_state_tracking=True
-    )
-    await agent.setup()
-    # Add tools
-    agent.add_tool(ThinkTool())
-
-    # First task
-    task1 = "What is the capital of Germany?"
-    result1 = await agent.run(task1)
-    print(f"Task 1: {task1}")
-    print(f"Result 1: {result1}")
-
-    # Second task (should have context from first)
-    task2 = "What is its population?"
-    result2 = await agent.run(task2)
-    print(f"Task 2: {task2}")
-    print(f"Result 2: {result2}")
-
-    # Get statistics
-    stats = agent.get_statistics()
-    print(f"Agent Statistics: {stats}")
-    print()
-
+async def get_agent():
+    global agent
+    if agent is None:
+        await init_assistant_agent()
+    return agent
 
 async def main():
-    # Run all examples
-    await example_basic_usage()
-    await example_complex_task()
-    await example_with_skills()
-    await example_state_management()
+    # 初始化 assistant agent
+    try:
+        assistant_agent = await get_agent()
+        print("AssistantAgent 初始化成功！")
+        print("输入您的问题，或输入 'exit' 退出。")
+        
+        # 持续交互循环
+        while True:
+            # 获取用户输入
+            user_input = input("\n> ")
+            
+            # 检查是否为空输入
+            if not user_input.strip():
+                continue
+            
+            # 检查是否退出
+            if user_input.lower() in ['exit', 'quit', 'q']:
+                print("再见！")
+                break
+            
+            # 处理用户输入
+            try:
+                print("\n处理中...")
+                async for event in await assistant_agent.run_async(gernal_prompt + user_input, route='raw',stream=True, max_steps=15):
+                    print(event.content,flush=True,end="")
+                # print()  # 添加换行符，确保提示符在新的一行
+            except Exception as e:
+                print(f"处理请求失败: {e}")
+                continue
+    except Exception as e:
+        print(f"初始化 assistant agent 失败: {e}")
+        return
 
 
 if __name__ == "__main__":
