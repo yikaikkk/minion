@@ -43,6 +43,9 @@ class BaseAgent:
     agent_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     session_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     max_steps: int = 20
+    
+    # Memory configuration
+    memory_config: Optional[Dict[str, Any]] = None
 
     # Auto compact configuration
     auto_compact_enabled: bool = True           # Enable/disable auto compact
@@ -195,6 +198,9 @@ class BaseAgent:
                 
             if self.llms is not None:
                 brain_kwargs['llms'] = self.llms
+            
+            if self.memory_config is not None:
+                brain_kwargs['memory_config'] = self.memory_config
                     
             self.brain = Brain(**brain_kwargs)
         

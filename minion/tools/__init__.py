@@ -159,6 +159,36 @@ def __getattr__(name):
         __getattr__("BrowserToolset")
         return _lazy_imports.get("HAS_BROWSER_TOOLSET", False)
 
+    # Bluetooth Tools
+    if name in ("BluetoothScanTool", "BluetoothToolset"):
+        if "BluetoothScanTool" not in _lazy_imports:
+            try:
+                from .bluetooth_tool import BluetoothScanTool, BluetoothToolset
+                _lazy_imports["BluetoothScanTool"] = BluetoothScanTool
+                _lazy_imports["BluetoothToolset"] = BluetoothToolset
+                _lazy_imports["HAS_BLUETOOTH_TOOL"] = True
+            except ImportError:
+                class BluetoothScanTool:
+                    def __init__(self, *args, **kwargs):
+                        self._error_msg = "bleak library is not available. Please install it with 'pip install bleak'"
+                    async def forward(self, *args, **kwargs):
+                        return [{"error": self._error_msg}]
+                class BluetoothToolset:
+                    def __init__(self):
+                        self.tools = [BluetoothScanTool()]
+                    async def setup(self):
+                        pass
+                    def get_tools(self):
+                        return self.tools
+                _lazy_imports["BluetoothScanTool"] = BluetoothScanTool
+                _lazy_imports["BluetoothToolset"] = BluetoothToolset
+                _lazy_imports["HAS_BLUETOOTH_TOOL"] = False
+        return _lazy_imports[name]
+
+    if name == "HAS_BLUETOOTH_TOOL":
+        __getattr__("BluetoothScanTool")
+        return _lazy_imports.get("HAS_BLUETOOTH_TOOL", False)
+
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -196,4 +226,7 @@ __all__ = [
     "BrowserToolset",
     "create_browser_toolset",
     "HAS_BROWSER_TOOLSET",
+    # Bluetooth Tool exports
+    "BluetoothScanTool",
+    "BluetoothToolset",
 ]

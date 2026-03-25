@@ -178,6 +178,20 @@ class RawMinion(WorkerMinion):
         self.answer_raw = self.input.answer_raw = full_response
         self.input.answer = self.answer
 
+        # 生成最终的StreamChunk，标记任务完成
+        final_chunk = StreamChunk(
+            content="",
+            chunk_type="final_answer",
+            metadata={
+                "minion_type": self.__class__.__name__,
+                "minion_chunk_number": minion_chunk_counter + 1,
+                "minion_total_length": len(full_response)
+            }
+        )
+        # 直接设置is_final_answer属性，而不是在metadata中设置
+        final_chunk.is_final_answer = True
+        yield final_chunk
+
 
 @register_worker_minion
 class NativeMinion(WorkerMinion):
