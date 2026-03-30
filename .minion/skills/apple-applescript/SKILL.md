@@ -207,6 +207,25 @@ Maps 走 JXA，不走 AppleScript 主流程：
 - 路线规划、收藏夹管理、复杂详情页在不同 macOS 版本差异较大。
 - 脚本不能稳定完成时，应建议用户切到 Maps App 手动完成。
 
+### Music
+
+可做：
+
+- `check_access.applescript`：检查能否访问 Music。
+- `play_pause.applescript`：播放/暂停音乐。
+- `get_current_track.applescript`：获取当前播放的歌曲信息。
+- `next_track.applescript`：跳到下一首歌曲。
+- `previous_track.applescript`：回到上一首歌曲。
+- `set_volume.applescript`：设置音量（0-100）。
+- `play_song.applescript`：搜索并播放指定歌曲。
+
+适合：
+
+- 控制音乐播放
+- 查看当前播放信息
+- 调整音量
+- 播放指定歌曲
+
 ## 高频场景速查
 
 用户说这些话时，你应优先想到对应脚本：
@@ -224,6 +243,12 @@ Maps 走 JXA，不走 AppleScript 主流程：
 - “加一条提醒事项” -> `reminders/create_reminder.template.applescript`
 - “打开 Safari 搜这个网址” -> `safari/open_new_document.applescript` + `safari/set_document_url.applescript`
 - “打开地图搜附近咖啡店” -> `jxa/maps_open_url.js`
+- “播放/暂停音乐” -> `music/play_pause.applescript`
+- “现在在放什么歌” -> `music/get_current_track.applescript`
+- “下一首” -> `music/next_track.applescript`
+- “上一首” -> `music/previous_track.applescript`
+- “把音量调到50%” -> `music/set_volume.applescript 50`
+- “播放周杰伦的歌” -> `music/play_song.applescript "周杰伦"`
 
 ## 权限排障
 
