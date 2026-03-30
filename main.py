@@ -25,7 +25,7 @@ from minion.tools.bluetooth_tool import BluetoothScanTool, BluetoothToolset
 
 
 
-    
+
 assistant_agent = None
 chat_agent = None
 
@@ -35,22 +35,28 @@ async def init_assistant_agent():
     memory_config = {
         **LocalConfig.local_mem_config
     }
-    
+
     assistant_agent=await AssistantAgent.create(
         name="assistant_agent",
+        user_id="ikkk",
+        session_id="ikkk",
+        agent_id="ikkk",
         tools=[SkillTool(),UnrestrictedBashTool(),FinalAnswerTool(),BluetoothScanTool()],
         memory_config=memory_config
     )
-    
+
 async def init_chat_agent():
     """初始化 chat agent"""
     global chat_agent
     memory_config = {
         **LocalConfig.local_mem_config
     }
-    
+
     chat_agent=await ChatAgent.create(
         name="chat_agent",
+        user_id="ikkk",
+        session_id="ikkk",
+        agent_id="ikkk",
         memory_config=memory_config
     )
 
@@ -72,31 +78,31 @@ async def main():
         # 初始化 chat agent
         chat_agent_instance = await get_chat_agent()
         print("ChatAgent 初始化成功！")
-        
+
         # 初始化 assistant agent
         assistant_agent_instance = await get_assistant_agent()
         print("AssistantAgent 初始化成功！")
-        
+
         print("输入您的问题，或输入 'exit' 退出。")
-        
+
         # 持续交互循环
         while True:
             # 获取用户输入
             user_input = input("\n> ")
-            
+
             # 检查是否为空输入
             if not user_input.strip():
                 continue
-            
+
             # 检查是否退出
             if user_input.lower() in ['exit', 'quit', 'q']:
                 print("再见！")
                 break
-            
+
             # 处理用户输入
             try:
                 print("\n处理中...")
-                
+
                 # 首先使用 ChatAgent 处理
                 chat_response = await chat_agent_instance.run_async(user_input, route='raw', stream=False, max_steps=1)
                 chat_answer = chat_response.answer if hasattr(chat_response, 'answer') else str(chat_response)

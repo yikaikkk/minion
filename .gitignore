@@ -64,6 +64,7 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 minion/configs/local_conf.py
+minion/mem0_chroma/
 
 # Log files
 *.log
@@ -105,7 +106,7 @@ run_*.json
 #LLMDebug trace files
 tracing_log
 uploads
-.minion
+
 .mcp.json
 .zed
 

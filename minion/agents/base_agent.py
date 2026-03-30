@@ -22,6 +22,10 @@ from minion.types.history import History
 
 logger = logging.getLogger(__name__)
 
+# post_step 写入 mem0 时的内容长度上限（避免单条记忆过大）
+_MEM0_POST_STEP_USER_MAX = 4000
+_MEM0_POST_STEP_ASSISTANT_MAX = 12000
+
 
 @dataclass
 class BaseAgent:
@@ -46,6 +50,8 @@ class BaseAgent:
     
     # Memory configuration
     memory_config: Optional[Dict[str, Any]] = None
+    # 每步 post_step 是否将本轮 user/assistant 摘要写入 mem0（需已配置 memory_config 且 brain.mem 可用）
+    mem0_persist_steps: bool = True
 
     # Auto compact configuration
     auto_compact_enabled: bool = True           # Enable/disable auto compact
@@ -567,9 +573,14 @@ class BaseAgent:
         try:
             # 使用agent的tools
             tools = self.tools
-            
+            # 与 execute_step 一致：同步 state、注入检索记忆（否则 run_async(stream=True) 不会走 execute_step）
+            self.brain.state = state
+            effective_system_prompt = self._effective_system_prompt_with_memory(state)
+
             # 调用 brain.step 并检查是否返回流式生成器
-            result = await self.brain.step(state, tools=tools, stream=True, system_prompt=self.system_prompt, **kwargs)
+            result = await self.brain.step(
+                state, tools=tools, stream=True, system_prompt=effective_system_prompt, **kwargs
+            )
             
             # 如果 brain.step 返回的是异步生成器，则流式处理
             if inspect.isasyncgen(result):
@@ -660,8 +671,69 @@ class BaseAgent:
         
         # 执行后处理操作
         await self.post_step(state.input, result)
-        
+
         return result
+    def _memory_search_query_text(self, input_obj: Optional[Input]) -> str:
+        """从 Input 得到用于 mem0 语义检索的纯文本 query（支持 str / 消息列表）。"""
+        if not input_obj:
+            return ""
+        q = getattr(input_obj, "query", None)
+        if q is None:
+            return ""
+        if isinstance(q, str):
+            return q.strip()
+        if isinstance(q, list):
+            parts = []
+            for item in q:
+                if isinstance(item, dict) and item.get("content") is not None:
+                    parts.append(str(item.get("content", "")))
+                else:
+                    parts.append(str(item))
+            return "\n".join(parts).strip()
+        return str(q).strip()
+
+    def _format_memory_hits_for_prompt(self, memory_to_search: Any) -> str:
+        """将 search_memories 的返回结果格式化为可拼进 system prompt 的字符串。"""
+        if not memory_to_search:
+            return ""
+        if isinstance(memory_to_search, dict):
+            if "results" in memory_to_search:
+                return self._format_memory_hits_for_prompt(memory_to_search["results"])
+            return ""
+        if not isinstance(memory_to_search, list):
+            return str(memory_to_search)
+        lines: List[str] = []
+        for h in memory_to_search:
+            if isinstance(h, str):
+                lines.append(h)
+            elif isinstance(h, dict):
+                if "memory" in h:
+                    lines.append(str(h["memory"]))
+                elif "content" in h:
+                    lines.append(str(h["content"]))
+                else:
+                    lines.append(str(h))
+            else:
+                lines.append(str(h))
+        return "\n".join(lines)
+
+    def _effective_system_prompt_with_memory(self, state: AgentState) -> str:
+        """
+        system_prompt + 检索到的长期记忆块。
+        供 execute_step 与 _execute_step_stream 共用，避免 run_async(stream=True) 时跳过记忆注入。
+        """
+        base = self.system_prompt or ""
+        if not state.input:
+            return base
+        q = self._memory_search_query_text(state.input)
+        if not q:
+            return base
+        memory_to_search = self.search_memories(q)
+        mem_text = self._format_memory_hits_for_prompt(memory_to_search)
+        if not mem_text.strip():
+            return base
+        return base + "\n\n## Relevant memory\n" + mem_text
+
     
     async def execute_step(self, state: AgentState, stream: bool = False, **kwargs) -> AgentResponse:
         """
@@ -678,8 +750,9 @@ class BaseAgent:
         # 同步state到brain，这样minion可以访问agent的状态
         self.brain.state = state
         
+        effective_system_prompt = self._effective_system_prompt_with_memory(state)
         # 传递强类型状态给brain.step
-        result = await self.brain.step(state, tools=tools, stream=stream, system_prompt=self.system_prompt, **kwargs)
+        result = await self.brain.step(state, tools=tools, stream=stream, system_prompt=effective_system_prompt, **kwargs)
         
         # 确保返回AgentResponse格式
         if not isinstance(result, AgentResponse):
@@ -705,8 +778,83 @@ class BaseAgent:
             input_data: 输入数据
             result: step的执行结果 (可以是5-tuple或AgentResponse)
         """
-        # 默认实现不执行任何操作
-        pass
+        await self._maybe_persist_step_to_mem0(input_data, result)
+
+    def _input_query_to_memory_text(self, input_data: Input) -> str:
+        """将本轮 Input.query 转为适合写入 mem0 的纯文本（截断）。"""
+        q = getattr(input_data, "query", None)
+        if q is None:
+            return ""
+        if isinstance(q, str):
+            text = q.strip()
+        elif isinstance(q, list):
+            parts = []
+            for item in q:
+                if isinstance(item, dict) and item.get("content") is not None:
+                    parts.append(str(item.get("content", "")))
+                else:
+                    parts.append(str(item))
+            text = "\n".join(parts).strip()
+        else:
+            text = str(q).strip()
+        if len(text) > _MEM0_POST_STEP_USER_MAX:
+            return text[:_MEM0_POST_STEP_USER_MAX] + "\n... [truncated]"
+        return text
+
+    def _agent_response_to_memory_text(self, response: AgentResponse) -> str:
+        """从 AgentResponse 抽取写入长期记忆的助手侧文本（截断）。"""
+        if response.error:
+            text = f"[error] {response.error}"
+        elif response.is_final_answer and response.answer is not None:
+            text = str(response.answer)
+        elif response.answer is not None:
+            text = str(response.answer)
+        elif response.content:
+            text = str(response.content)
+        elif response.raw_response is not None:
+            text = str(response.raw_response)
+        else:
+            text = ""
+        text = text.strip()
+        if len(text) > _MEM0_POST_STEP_ASSISTANT_MAX:
+            return text[:_MEM0_POST_STEP_ASSISTANT_MAX] + "\n... [truncated]"
+        return text
+
+    async def _maybe_persist_step_to_mem0(self, input_data: Input, result: Any) -> None:
+        """在 mem0 可用时，将本轮交互追加为长期记忆（失败仅打日志，不抛给上层）。"""
+        if not self.mem0_persist_steps:
+            return
+        if not (self.brain and self.brain.mem):
+            return
+        try:
+            if not isinstance(result, AgentResponse):
+                result = AgentResponse.from_tuple(result)
+        except Exception as e:
+            logger.debug("mem0 post_step: skip normalize result: %s", e)
+            return
+
+        user_text = self._input_query_to_memory_text(input_data)
+        assistant_text = self._agent_response_to_memory_text(result)
+        if not user_text and not assistant_text:
+            return
+
+        messages: List[Dict[str, str]] = []
+        if user_text:
+            messages.append({"role": "user", "content": user_text})
+        if assistant_text:
+            messages.append({"role": "assistant", "content": assistant_text})
+
+        try:
+            self.add_memory(
+                messages,
+                metadata={
+                    "source": "post_step",
+                    "is_final_answer": result.is_final_answer,
+                    "terminated": result.terminated,
+                },
+            )
+        except Exception as e:
+            logger.warning("mem0 post_step add_memory failed: %s", e)
         
     async def provide_final_answer(self, state: AgentState) -> Any:
         """

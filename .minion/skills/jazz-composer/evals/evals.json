@@ -1,0 +1,23 @@
+{
+  "skill_name": "jazz-composer",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Compose a bebop tune in the style of Charlie Parker with a classic AABA form. Include chord progression, melody in ABC notation, and arrangement suggestions.",
+      "expected_output": "A complete bebop composition with fast tempo, complex ii-V-I progressions, virtuosic melody with chromaticism, and authentic bebop phrasing.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Create a modal jazz piece inspired by Miles Davis's 'So What'. Use D Dorian mode and include space for improvisation.",
+      "expected_output": "A modal jazz composition with static Dm7 harmony, simple melodic motifs, and clear sections for soloing over the modal framework.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Write a 12-bar blues progression in F that incorporates jazz harmony like tritone substitutions and extended chords. Provide both the basic blues changes and the jazz-enhanced version.",
+      "expected_output": "A 12-bar blues in F with sophisticated jazz reharmonization including ii-V progressions, tritone subs, and extended chord voicings.",
+      "files": []
+    }
+  ]
+}

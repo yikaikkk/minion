@@ -1,0 +1,23 @@
+{
+  "skill_name": "csv-processor",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Process the CSV file at /tmp/sample_data.csv by adding a new column called 'total' that multiplies the 'quantity' and 'price' columns, then save it as processed_sample.csv",
+      "expected_output": "A new CSV file at /tmp/processed_sample.csv with an additional 'total' column containing the product of quantity and price columns",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Read the CSV file /tmp/sales_data.csv and filter only rows where the 'region' column equals 'North', then save the result as north_sales.csv in the same directory",
+      "expected_output": "A new CSV file at /tmp/north_sales.csv containing only rows where region is 'North'",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Process /tmp/inventory.csv by sorting the data by the 'product_name' column in ascending order and save it as sorted_inventory.csv",
+      "expected_output": "A new CSV file at /tmp/sorted_inventory.csv with data sorted by product_name",
+      "files": []
+    }
+  ]
+}
