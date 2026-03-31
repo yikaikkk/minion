@@ -130,3 +130,62 @@ class AssistantAgentState(AgentState):
         self.skill_usage[skill_name] = self.skill_usage.get(skill_name, 0) + 1
 
 
+class PlannerAgentState(AgentState):
+    """
+    Extended state for PlannerAgent with planning specific fields.
+    """
+    
+    # Task planning fields
+    task_plan: Dict[str, Any] = Field(default_factory=dict, description="Task plan with sub-tasks and assignments")
+    sub_tasks: List[Dict[str, Any]] = Field(default_factory=list, description="List of sub-tasks")
+    task_progress: Dict[str, str] = Field(default_factory=dict, description="Progress status of each sub-task")
+    
+    # Agent coordination
+    agent_assignments: Dict[str, str] = Field(default_factory=dict, description="Agent assignments for sub-tasks")
+    agent_status: Dict[str, str] = Field(default_factory=dict, description="Status of each agent")
+    
+    # Result aggregation
+    sub_task_results: Dict[str, Any] = Field(default_factory=dict, description="Results from each sub-task")
+    aggregated_result: Optional[Any] = Field(default=None, description="Aggregated final result")
+    
+    def reset(self) -> None:
+        """Reset including planner-specific fields."""
+        super().reset()
+        self.task_plan = {}
+        self.sub_tasks = []
+        self.task_progress = {}
+        self.agent_assignments = {}
+        self.agent_status = {}
+        self.sub_task_results = {}
+        self.aggregated_result = None
+    
+    def add_sub_task(self, task_id: str, task_description: str, agent: str, dependencies: List[str] = None) -> None:
+        """Add a sub-task to the plan."""
+        sub_task = {
+            "id": task_id,
+            "description": task_description,
+            "agent": agent,
+            "dependencies": dependencies or [],
+            "status": "pending"
+        }
+        self.sub_tasks.append(sub_task)
+        self.task_progress[task_id] = "pending"
+        self.agent_assignments[task_id] = agent
+    
+    def update_task_status(self, task_id: str, status: str) -> None:
+        """Update the status of a sub-task."""
+        self.task_progress[task_id] = status
+        for task in self.sub_tasks:
+            if task["id"] == task_id:
+                task["status"] = status
+                break
+    
+    def add_task_result(self, task_id: str, result: Any) -> None:
+        """Add the result of a sub-task."""
+        self.sub_task_results[task_id] = result
+    
+    def set_aggregated_result(self, result: Any) -> None:
+        """Set the aggregated final result."""
+        self.aggregated_result = result
+
+

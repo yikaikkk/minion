@@ -30,10 +30,19 @@ def main() -> int:
         type=Path,
         help="Path to a .applescript / .scpt / plain text script file.",
     )
+    parser.add_argument(
+        "-a",
+        "--args",
+        nargs="*",
+        metavar="ARG",
+        help="Arguments to pass to the AppleScript.",
+    )
     args = parser.parse_args()
 
     if args.execute is not None:
         cmd = ["osascript", "-e", args.execute]
+        if args.args:
+            cmd.extend(args.args)
         return subprocess.run(cmd, check=False).returncode
 
     if args.file is not None:
@@ -42,6 +51,8 @@ def main() -> int:
             print(f"run_applescript: file not found: {path}", file=sys.stderr)
             return 2
         cmd = ["osascript", str(path)]
+        if args.args:
+            cmd.extend(args.args)
         return subprocess.run(cmd, check=False).returncode
 
     if sys.stdin.isatty():
