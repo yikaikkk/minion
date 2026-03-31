@@ -17,6 +17,7 @@
 from dataclasses import dataclass
 from typing import Any
 from .base_tool import BaseTool
+from .confirmation_tool import ConfirmationTool
 from abc import ABC, abstractmethod
 
 @dataclass
@@ -555,6 +556,7 @@ TOOL_MAPPING = {
         GoogleSearchTool,
         FinalAnswerTool,
         UserInputTool,
+        ConfirmationTool,
     ]
 }
 
@@ -567,5 +569,6 @@ __all__ = [
     "GoogleSearchTool",
     "VisitWebpageTool",
     "WikipediaSearchTool",
+    "ConfirmationTool",
     # "SpeechToTextTool",  # Commented out due to missing dependencies
 ]

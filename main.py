@@ -85,39 +85,99 @@ async def main():
 
         print("输入您的问题，或输入 'exit' 退出。")
 
+        # ====== 状态机 ======
+        state = {
+            "status": "IDLE",  # IDLE / WAITING_CONFIRM
+            "pending": None
+        }
+
         # 持续交互循环
         while True:
             # 获取用户输入
             user_input = input("\n> ")
 
-            # 检查是否为空输入
+            # 空输入跳过
             if not user_input.strip():
                 continue
 
-            # 检查是否退出
+            # 退出
             if user_input.lower() in ['exit', 'quit', 'q']:
                 print("再见！")
                 break
 
-            # 处理用户输入
+            # ========================
+            # 1️⃣ 如果在等待确认
+            # ========================
+            if state["status"] == "WAITING_CONFIRM":
+                decision = "yes" if user_input.lower() in ["yes", "y", "确认"] else "no"
+
+                print(f"\n用户选择: {decision}")
+
+                # 这里可以直接执行，也可以回给 agent
+                pending = state["pending"]
+
+                # 简单示例：直接把确认结果交给 assistant 继续处理
+                resume_input = f"用户对以下操作的确认结果是: {decision}\n{pending}"
+
+                try:
+                    print("\n恢复执行中...")
+                    response = await assistant_agent_instance.run_async(
+                        resume_input,
+                        route='raw',
+                        stream=False,
+                        max_steps=10
+                    )
+
+                    answer = response.answer if hasattr(response, 'answer') else str(response)
+                    print(answer)
+                except Exception as e:
+                    print(f"恢复执行失败: {e}")
+
+                state["status"] = "IDLE"
+                state["pending"] = None
+                continue
+
+            # ========================
+            # 2️⃣ 正常执行
+            # ========================
             try:
                 print("\n处理中...")
 
-                # 首先使用 ChatAgent 处理
-                chat_response = await chat_agent_instance.run_async(user_input, route='raw', stream=False, max_steps=1)
+                chat_response = await chat_agent_instance.run_async(
+                    user_input,
+                    route='raw',
+                    stream=False,
+                    max_steps=1
+                )
+
                 chat_answer = chat_response.answer if hasattr(chat_response, 'answer') else str(chat_response)
                 chat_content = chat_response.content if hasattr(chat_response, 'content') else str(chat_response)
-                # 检查是否需要转发到 AssistantAgent
+
                 if "NEEDS_ASSISTANT_AGENT" in chat_content or "NEEDS_ASSISTANT_AGENT" in chat_answer:
-                    # 使用 AssistantAgent 处理
-                    async for event in await assistant_agent_instance.run_async( user_input, route='raw', stream=True,max_steps=15):
-                        print(event.content, flush=True, end="")
-                        # print(event, flush=True, end="")
-                        # print(event)
+                    async for event in await assistant_agent_instance.run_async(
+                        user_input,
+                        route='raw',
+                        stream=True,
+                        max_steps=15
+                    ):
+                        # 打印流式内容
+                        if hasattr(event, "content") and event.content:
+                            print(event.content, flush=True, end="")
+
+                        # 检测是否有结构化返回（例如 NEED_CONFIRM）
+                        if hasattr(event, "answer"):
+                            result = event.answer
+
+                            if isinstance(result, dict) and result.get("status") == "NEED_CONFIRM":
+                                print("\n" + result["message"])
+
+                                state["status"] = "WAITING_CONFIRM"
+                                state["pending"] = result["message"]
+                                break
+
                 else:
-                    # 直接返回 ChatAgent 的响应
                     print(chat_answer)
-                # print()  # 添加换行符，确保提示符在新的一行
+
             except Exception as e:
                 print(f"处理请求失败: {e}")
                 continue
