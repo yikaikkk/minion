@@ -22,6 +22,32 @@ from minion.tools.bluetooth_tool import BluetoothScanTool, BluetoothToolset
 
 # 添加一个prompt，让ai每次都有限考虑使用skills
 # gernal_prompt="""【强制执行要求】：请务必优先检索并调用你的技能（Skills/Tools）来解决上述问题。严禁仅凭内在记忆直接猜测或编造答案。只有在确认没有任何技能适用时，才允许基于自身知识作答。如果问题已经解答了，请务必把terminated或者is_final_answer设置为true 【问题】:"""
+comfire_prompt="""
+你是一个具备工具调用能力的智能助手，必须严格遵守以下执行规则：
+
+【执行原则】
+1. 删除文件、系统操作等属于高风险操作
+2. 必须先确认，不能直接执行
+
+【确认流程】
+当需要确认时，必须返回：
+
+{
+  "status": "NEED_CONFIRM",
+  "message": "描述操作",
+  "action": "操作类型",
+  "payload": {...}
+}
+
+禁止用自然语言询问确认！
+
+【恢复规则】
+用户输入 yes/no 时：
+- yes → 执行 payload
+- no → 取消
+
+必须基于 payload，不要重新理解用户意图
+"""
 
 
 
@@ -117,7 +143,18 @@ async def main():
                 pending = state["pending"]
 
                 # 简单示例：直接把确认结果交给 assistant 继续处理
-                resume_input = f"用户对以下操作的确认结果是: {decision}\n{pending}"
+                resume_input = f"""
+                用户原始请求：
+                {state["pending"]["original_input"]}
+
+                系统提示需要确认：
+                {state["pending"]["confirm_payload"]["message"]}
+
+                用户确认结果：
+                {decision}
+
+                请继续执行原始任务。
+                """
 
                 try:
                     print("\n恢复执行中...")
@@ -155,7 +192,7 @@ async def main():
 
                 if "NEEDS_ASSISTANT_AGENT" in chat_content or "NEEDS_ASSISTANT_AGENT" in chat_answer:
                     async for event in await assistant_agent_instance.run_async(
-                        user_input,
+                        comfire_prompt+"\n"+"用户输入是："+user_input,
                         route='raw',
                         stream=True,
                         max_steps=15
@@ -163,18 +200,22 @@ async def main():
                         # 打印流式内容
                         if hasattr(event, "content") and event.content:
                             print(event.content, flush=True, end="")
-
+                            print(1)
+                            eventcontent=event.content
                         # 检测是否有结构化返回（例如 NEED_CONFIRM）
                         if hasattr(event, "answer"):
                             result = event.answer
-
-                            if isinstance(result, dict) and result.get("status") == "NEED_CONFIRM":
+                            print(result)
+                            if isinstance(result, dict) and result.get("status") == "NEED_CONFIRM" or isinstance(eventcontent, dict) and eventcontent.get("status") == "NEED_CONFIRM":
                                 print("\n" + result["message"])
 
                                 state["status"] = "WAITING_CONFIRM"
-                                state["pending"] = result["message"]
+                                state["pending"] = {
+                                    "original_input": user_input,
+                                    "confirm_payload": result
+                                }
                                 break
-
+                    print(2)
                 else:
                     print(chat_answer)
 
